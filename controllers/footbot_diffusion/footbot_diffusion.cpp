@@ -45,6 +45,7 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
     */
    m_pcWheels    = GetActuator<CCI_DifferentialSteeringActuator>("differential_steering");
    m_pcProximity = GetSensor  <CCI_FootBotProximitySensor      >("footbot_proximity"    );
+   ledRing       = GetActuator<CCI_LEDsActuator                >("leds");
    /*
     * Parse the configuration file
     *
@@ -57,6 +58,12 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
    GetNodeAttributeOrDefault(t_node, "delta", m_fDelta, m_fDelta);
    GetNodeAttributeOrDefault(t_node, "velocity", m_fWheelVelocity, m_fWheelVelocity);
    GetNodeAttributeOrDefault(t_node, "role", robot_role, robot_role);
+
+   if (robot_role == 1) {
+      ledRing->SetAllColors(CColor(0, 255, 0, 255));
+   } else if (robot_role == 2) {
+      ledRing->SetAllColors(CColor(255, 0, 0, 255));
+   }
 }
 
 /****************************************/

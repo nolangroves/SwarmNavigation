@@ -29,9 +29,12 @@
 /* Definition of the foot-bot proximity sensor */
 #include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_proximity_sensor.h>
 
-/* Defintion of the IrRB sensors*/
+/* Definition of the IrRB sensors */
 #include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_sensor.h>
 #include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_actuator.h>
+
+/* Definition of the LEDs */
+#include <argos3/plugins/robots/generic/control_interface/ci_leds_actuator.h>
 
 /*
  * All the ARGoS stuff in the 'argos' namespace.
@@ -89,6 +92,8 @@ private:
    CCI_DifferentialSteeringActuator* m_pcWheels;
    /* Pointer to the foot-bot proximity sensor */
    CCI_FootBotProximitySensor* m_pcProximity;
+   /* Pointer to the foot-bot LEDs */
+   CCI_LEDsActuator* ledRing;
 
    /*
     * The following variables are used as parameters for the
