@@ -29,6 +29,10 @@
 /* Definition of the foot-bot proximity sensor */
 #include <argos3/plugins/robots/foot-bot/control_interface/ci_footbot_proximity_sensor.h>
 
+/* Defintion of the IrRB sensors*/
+#include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_sensor.h>
+#include <argos3/plugins/robots/generic/control_interface/ci_range_and_bearing_actuator.h>
+
 /*
  * All the ARGoS stuff in the 'argos' namespace.
  * With this statement, you save typing argos:: every time.
@@ -109,6 +113,12 @@ private:
    /* Angle tolerance range to go straight.
     * It is set to [-alpha,alpha]. */
    CRange<CRadians> m_cGoStraightAngleRange;
+
+   int robot_role;
+   /* Role of the robot 
+    * 0 is normal swarm behavior
+    * 1 is target
+    * 2 is the one navigating */
 
 };
 

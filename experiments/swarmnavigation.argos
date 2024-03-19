@@ -20,11 +20,45 @@
                                   library="build/controllers/footbot_diffusion/libfootbot_diffusion.so">
       <actuators>
         <differential_steering implementation="default" />
+        <range_and_bearing implementation="default" />
       </actuators>
       <sensors>
         <footbot_proximity implementation="default" show_rays="true" />
+        <range_and_bearing implementation="medium"
+                           medium="rab" 
+                           show_rays="true"/>
       </sensors>
-      <params alpha="7.5" delta="0.1" velocity="5" />
+      <params alpha="7.5" delta="0.1" velocity="5" role="0"/>
+    </footbot_diffusion_controller>
+
+    <footbot_diffusion_controller id="ftarget"
+                                  library="build/controllers/footbot_diffusion/libfootbot_diffusion.so">
+      <actuators>
+        <differential_steering implementation="default" />
+        <range_and_bearing implementation="default" />
+      </actuators>
+      <sensors>
+        <footbot_proximity implementation="default" show_rays="true" />
+        <range_and_bearing implementation="medium"
+                           medium="rab" 
+                           show_rays="true"/>
+      </sensors>
+      <params alpha="7.5" delta="0.1" velocity="5" role="1"/>
+    </footbot_diffusion_controller>
+
+    <footbot_diffusion_controller id="fnav"
+                                  library="build/controllers/footbot_diffusion/libfootbot_diffusion.so">
+      <actuators>
+        <differential_steering implementation="default" />
+        <range_and_bearing implementation="default" />
+      </actuators>
+      <sensors>
+        <footbot_proximity implementation="default" show_rays="true" />
+        <range_and_bearing implementation="medium"
+                           medium="rab" 
+                           show_rays="true"/>
+      </sensors>
+      <params alpha="7.5" delta="0.1" velocity="5" role="2"/>
     </footbot_diffusion_controller>
 
   </controllers>
@@ -102,7 +136,9 @@
   <!-- ********* -->
   <!-- * Media * -->
   <!-- ********* -->
-  <media />
+  <media>
+    <range_and_bearing id="rab" />
+  </media>
 
   <!-- ****************** -->
   <!-- * Visualization * -->
