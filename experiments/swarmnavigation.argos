@@ -82,6 +82,20 @@
     </box>
 
     <!--
+      Place the Target and Nav robots
+    -->
+
+    <foot-bot id="fb_target">
+      <body position="1.8,-1.8,0" orientation="0,0,0" /> 
+      <controller config="ftarget" />
+    </foot-bot>
+
+    <foot-bot id="fb_nav">
+      <body position="-1.8,1.8,0" orientation="0,0,0" /> 
+      <controller config="fnav" />
+    </foot-bot>
+
+    <!--
         You can distribute entities randomly. Here, we distribute
         10 foot-bots in this way:
         - the position is uniformly distributed
@@ -99,6 +113,8 @@
         </foot-bot>
       </entity>
     </distribute>
+
+
 
     <!--
         We distribute 5 boxes uniformly in position and rotation around Z.
