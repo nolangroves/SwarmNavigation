@@ -7,6 +7,8 @@
 
 #include <cstring>
 
+#include <argos3/core/utility/logging/argos_log.h>
+
 /****************************************/
 /****************************************/
 
@@ -78,6 +80,8 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
       navTable[0] = {0, 0};
    }
 
+   bestNavHeading = 0;
+   bestNavDist = 0;
    stepnum = 0;
 }
 
@@ -102,20 +106,28 @@ void CFootBotDiffusion::ControlStep() {
    CCI_RangeAndBearingSensor::TReadings readings = rab_get->GetReadings();
    for (auto i = readings.begin(); i != readings.end(); ++i) {
       CCI_RangeAndBearingSensor::SPacket reading = *i;
-      UInt8* data = reading.Data.ToCArray();
-      char target_id = data[0];
-      int reported_sequence_num;
-      std::memcpy(&reported_sequence_num, data+1, sizeof(int));
-      float reported_distance;
-      std::memcpy(&reported_distance, data+1+sizeof(int), sizeof(int));
+      CByteArray data = reading.Data;
+      if (robot_role == 2) {
+         LOG << data << "\n";
+      }
+      UInt8 magic = data.PopFront<UInt8>();
+      if (magic != 77) continue; 
+      UInt8 target_id = data.PopFront<UInt8>();
+      UInt32 reported_sequence_num = data.PopFront<UInt32>();
+      UInt32 cursed = data.PopFront<UInt32>();
+      float reported_distance = * ( float * ) & cursed;
 
+      if (robot_role == 2) {
+      LOG << "Recieved id " << (int)target_id << " num " << reported_sequence_num << " dist " << reported_distance << "\n";
+      }
       /* Update navigation tables is new information is better */
-      Real computed_distance = reading.Range + reported_distance;
-      if (computed_distance < navTable[target_id].distance && reported_sequence_num >= navTable[target_id].sequence_number) {
+      float computed_distance = reading.Range + reported_distance;
+      if (navTable.find(target_id) == navTable.end() || (computed_distance < navTable[target_id].distance && reported_sequence_num >= navTable[target_id].sequence_number) ) {
          navTable[target_id] = {
             reported_sequence_num,
             computed_distance
          };
+         // LOG << navTable[target_id].sequence_number << "\n";
       }
 
       /* Update navigation behavior is new information is better */
@@ -139,17 +151,29 @@ void CFootBotDiffusion::ControlStep() {
       }
 
       const int message_size = 10;
-      UInt8 message[message_size * navTable.size()];
+      CByteArray message = CByteArray();
       for (auto i = navTable.begin(); i != navTable.end(); ++i) {
-         char id = (char)(i->first);
-         void* start = message + message_size * id;
-         std::memcpy(&id, start, sizeof(char));
-         int sequence_num = navTable[i->first].sequence_number;
-         std::memcpy(&sequence_num, start+1, sizeof(int));
+         UInt8 magic = 77;
+         message << magic;
+
+         UInt8 id = (UInt8)(i->first);
+         message << id;
+
+         UInt32 sequence_num = navTable[i->first].sequence_number;
+         message << sequence_num;
+         
          float distance = navTable[i->first].distance;
-         std::memcpy(&distance, start+1+sizeof(int), sizeof(float));
+         UInt32 dist_cursed = * ( UInt32 * ) &distance;
+         message << dist_cursed;
+
+         // LOG << "Sending id " << (int)id << " num " << sequence_num  << " dist " << distance << "\n";
+         // LOG << message << "\n";
+         
+         
       }
-      rab_send->SetData(CByteArray(message, message_size));
+      if (navTable.size() > 0)
+         rab_send->SetData(message);
+
    }
 
    /* Most of the bots should wander randomly */

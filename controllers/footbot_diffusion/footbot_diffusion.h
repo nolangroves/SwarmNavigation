@@ -142,8 +142,8 @@ private:
 
 
    struct NavTableEntry {
-      int sequence_number;
-      Real distance;
+      UInt32 sequence_number;
+      float distance;
    };
 
    std::map<int, NavTableEntry> navTable;
