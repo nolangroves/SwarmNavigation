@@ -94,6 +94,9 @@ private:
    CCI_FootBotProximitySensor* m_pcProximity;
    /* Pointer to the foot-bot LEDs */
    CCI_LEDsActuator* ledRing;
+   /* Pointer to the foot-bot RAB communication */
+   CCI_RangeAndBearingActuator* rab_send;
+   CCI_RangeAndBearingSensor* rab_get;
 
    /*
     * The following variables are used as parameters for the
@@ -124,6 +127,16 @@ private:
     * 0 is normal swarm behavior
     * 1 is target
     * 2 is the one navigating */
+
+
+   int stepnum;
+
+   struct NavTableEntry {
+      int sequence_number;
+      float distance;
+   };
+
+   
 
 };
 

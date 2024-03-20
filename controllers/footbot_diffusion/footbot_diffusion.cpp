@@ -45,6 +45,8 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
     */
    m_pcWheels    = GetActuator<CCI_DifferentialSteeringActuator>("differential_steering");
    m_pcProximity = GetSensor  <CCI_FootBotProximitySensor      >("footbot_proximity"    );
+   rab_send      = GetActuator<CCI_RangeAndBearingActuator     >("range_and_bearing");
+   rab_get       = GetSensor  <CCI_RangeAndBearingSensor       >("range_and_bearing");
    ledRing       = GetActuator<CCI_LEDsActuator                >("leds");
    /*
     * Parse the configuration file
@@ -59,41 +61,82 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
    GetNodeAttributeOrDefault(t_node, "velocity", m_fWheelVelocity, m_fWheelVelocity);
    GetNodeAttributeOrDefault(t_node, "role", robot_role, robot_role);
 
+   // Set unique colors
    if (robot_role == 1) {
       ledRing->SetAllColors(CColor(0, 255, 0, 255));
    } else if (robot_role == 2) {
       ledRing->SetAllColors(CColor(255, 0, 0, 255));
    }
+
+   // Initialize Nav Table
+   NavTableEntry navTable[10] = {0};
+
+   if (robot_role == 1) {
+      navTable[0] = {0, 0};
+   }
+
+   stepnum = 0;
 }
 
 /****************************************/
+
+
+
 /****************************************/
 
 void CFootBotDiffusion::ControlStep() {
-   /* Get readings from proximity sensor */
-   const CCI_FootBotProximitySensor::TReadings& tProxReads = m_pcProximity->GetReadings();
-   /* Sum them together */
-   CVector2 cAccumulator;
-   for(size_t i = 0; i < tProxReads.size(); ++i) {
-      cAccumulator += CVector2(tProxReads[i].Value, tProxReads[i].Angle);
-   }
-   cAccumulator /= tProxReads.size();
-   /* If the angle of the vector is small enough and the closest obstacle
-    * is far enough, continue going straight, otherwise curve a little
-    */
-   CRadians cAngle = cAccumulator.Angle();
-   if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(cAngle) &&
-      cAccumulator.Length() < m_fDelta ) {
-      /* Go straight */
-      m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
-   }
-   else {
-      /* Turn, depending on the sign of the angle */
-      if(cAngle.GetValue() > 0.0f) {
-         m_pcWheels->SetLinearVelocity(m_fWheelVelocity, 0.0f);
+
+
+
+   /* Most of the bots should wander randomly */
+   if (robot_role == 0) {
+      /* Get readings from proximity sensor */
+      const CCI_FootBotProximitySensor::TReadings& tProxReads = m_pcProximity->GetReadings();
+      /* Sum them together */
+      CVector2 cAccumulator;
+      for(size_t i = 0; i < tProxReads.size(); ++i) {
+         cAccumulator += CVector2(tProxReads[i].Value, tProxReads[i].Angle);
+      }
+      cAccumulator /= tProxReads.size();
+      /* If the angle of the vector is small enough and the closest obstacle
+      * is far enough, continue going straight, otherwise curve a little
+      */
+      CRadians cAngle = cAccumulator.Angle();
+      if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(cAngle) &&
+         cAccumulator.Length() < m_fDelta ) {
+         /* Go straight */
+         m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
       }
       else {
-         m_pcWheels->SetLinearVelocity(0.0f, m_fWheelVelocity);
+         /* Turn, depending on the sign of the angle */
+         if(cAngle.GetValue() > 0.0f) {
+            m_pcWheels->SetLinearVelocity(m_fWheelVelocity, 0.0f);
+         }
+         else {
+            m_pcWheels->SetLinearVelocity(0.0f, m_fWheelVelocity);
+         }
+      }
+   } else if (robot_role == 2) {
+      CCI_RangeAndBearingSensor::TReadings readings = rab_get->GetReadings();
+      Real best_range = -1;
+      CRadians best_bearing;
+      for (auto i = readings.begin(); i != readings.end(); ++i) {
+         CCI_RangeAndBearingSensor::SPacket reading = *i;
+         if (best_range == -1 || reading.Range < best_range) {
+            best_range = reading.Range;
+            best_bearing = reading.HorizontalBearing;
+         }
+      }
+      if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(best_bearing) ) {
+         /* Go straight */
+         m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
+      } else {
+         if(best_bearing.GetValue() < 0.0f) {
+            m_pcWheels->SetLinearVelocity(m_fWheelVelocity, 0.0f);
+         }
+         else {
+            m_pcWheels->SetLinearVelocity(0.0f, m_fWheelVelocity);
+         }
       }
    }
 }
