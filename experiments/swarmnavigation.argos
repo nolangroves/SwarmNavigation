@@ -25,6 +25,7 @@
               medium="leds" />
       </actuators>
       <sensors>
+        <differential_steering implementation="default" />
         <footbot_proximity implementation="default" show_rays="true" />
         <range_and_bearing implementation="medium"
                            medium="rab" 
@@ -46,6 +47,7 @@
         <range_and_bearing implementation="medium"
                            medium="rab" 
                            show_rays="true"/>
+        <differential_steering implementation="default" />
       </sensors>
       <params alpha="7.5" delta="0.1" velocity="5" role="1"/>
     </footbot_diffusion_controller>
@@ -59,6 +61,7 @@
               medium="leds" />
       </actuators>
       <sensors>
+        <differential_steering implementation="default" />
         <footbot_proximity implementation="default" show_rays="true" />
         <range_and_bearing implementation="medium"
                            medium="rab" 

@@ -50,6 +50,7 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
    rab_send      = GetActuator<CCI_RangeAndBearingActuator     >("range_and_bearing");
    rab_get       = GetSensor  <CCI_RangeAndBearingSensor       >("range_and_bearing");
    ledRing       = GetActuator<CCI_LEDsActuator                >("leds");
+   encoder       = GetSensor  <CCI_DifferentialSteeringSensor  >("differential_steering");
    /*
     * Parse the configuration file
     *
@@ -88,7 +89,8 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
 
 void CFootBotDiffusion::ControlStep() {
    /* Update local distance estimates */
-   Real distance_moved = 0; //Placeholder
+   CCI_DifferentialSteeringSensor::SReading encoder_reading = encoder->GetReading();
+   Real distance_moved = (encoder_reading.CoveredDistanceLeftWheel + encoder_reading.CoveredDistanceRightWheel) / 2;
    for (auto i = navTable.begin(); i != navTable.end(); ++i) {
       navTable[i->first].distance += distance_moved;
    }
