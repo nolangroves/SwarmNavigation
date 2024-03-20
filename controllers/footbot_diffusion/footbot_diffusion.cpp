@@ -82,6 +82,7 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
 
    bestNavHeading = 0;
    bestNavDist = 0;
+   distanceStar = -1;
    stepnum = 0;
 }
 
@@ -95,11 +96,13 @@ void CFootBotDiffusion::ControlStep() {
    /* Update local distance estimates */
    CCI_DifferentialSteeringSensor::SReading encoder_reading = encoder->GetReading();
    Real distance_moved = (encoder_reading.CoveredDistanceLeftWheel + encoder_reading.CoveredDistanceRightWheel) / 2;
+   Real radians_rotated = (-encoder_reading.CoveredDistanceLeftWheel + encoder_reading.CoveredDistanceRightWheel) / encoder_reading.WheelAxisLength;
    for (auto i = navTable.begin(); i != navTable.end(); ++i) {
       navTable[i->first].distance += distance_moved;
    }
    if (robot_role == 2) {
       bestNavDist -= distance_moved; 
+      bestNavHeading -= radians_rotated;
    }
 
    /* Process recieved messages */
@@ -107,9 +110,6 @@ void CFootBotDiffusion::ControlStep() {
    for (auto i = readings.begin(); i != readings.end(); ++i) {
       CCI_RangeAndBearingSensor::SPacket reading = *i;
       CByteArray data = reading.Data;
-      if (robot_role == 2) {
-         LOG << data << "\n";
-      }
       UInt8 magic = data.PopFront<UInt8>();
       if (magic != 77) continue; 
       UInt8 target_id = data.PopFront<UInt8>();
@@ -118,7 +118,7 @@ void CFootBotDiffusion::ControlStep() {
       float reported_distance = * ( float * ) & cursed;
 
       if (robot_role == 2) {
-      LOG << "Recieved id " << (int)target_id << " num " << reported_sequence_num << " dist " << reported_distance << "\n";
+      // LOG << "Recieved id " << (int)target_id << " num " << reported_sequence_num << " dist " << reported_distance << "\n";
       }
       /* Update navigation tables is new information is better */
       float computed_distance = reading.Range + reported_distance;
@@ -132,11 +132,12 @@ void CFootBotDiffusion::ControlStep() {
 
       /* Update navigation behavior is new information is better */
       if (robot_role == 2) {
-         if (reported_distance < distanceStar && reported_sequence_num >= sequenceNumberStar) {
+         if (distanceStar == -1 || (reported_distance < distanceStar && reported_sequence_num >= sequenceNumberStar)) {
             distanceStar = reported_distance;
             sequenceNumberStar = reported_sequence_num;
             bestNavDist = reading.Range;
-            bestNavHeading = reading.HorizontalBearing.GetValue() + .5; // Offset to avoid colision
+            bestNavHeading = reading.HorizontalBearing.GetValue() - 0.02; // Offset to avoid colision
+            LOG << bestNavDist << " @ " << bestNavHeading << "\n";
          }
       }
 
@@ -212,6 +213,7 @@ void CFootBotDiffusion::ControlStep() {
          m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
       } else {
          // Turn towards best heading
+         LOG << "Best Heading" << bestNavHeading << "\n";
          if(bestNavHeading < 0.0f) {
             m_pcWheels->SetLinearVelocity(m_fWheelVelocity, -m_fWheelVelocity);
          }
