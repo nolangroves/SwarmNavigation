@@ -5,6 +5,8 @@
 /* 2D vector definition */
 #include <argos3/core/utility/math/vector2.h>
 
+#include <cstring>
+
 /****************************************/
 /****************************************/
 
@@ -69,7 +71,7 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
    }
 
    // Initialize Nav Table
-   NavTableEntry navTable[10] = {0};
+   
 
    if (robot_role == 1) {
       navTable[0] = {0, 0};
@@ -85,8 +87,68 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
 /****************************************/
 
 void CFootBotDiffusion::ControlStep() {
+   /* Update local distance estimates */
+   Real distance_moved = 0; //Placeholder
+   for (auto i = navTable.begin(); i != navTable.end(); ++i) {
+      navTable[i->first].distance += distance_moved;
+   }
+   if (robot_role == 2) {
+      bestNavDist -= distance_moved; 
+   }
 
+   /* Process recieved messages */
+   CCI_RangeAndBearingSensor::TReadings readings = rab_get->GetReadings();
+   for (auto i = readings.begin(); i != readings.end(); ++i) {
+      CCI_RangeAndBearingSensor::SPacket reading = *i;
+      UInt8* data = reading.Data.ToCArray();
+      char target_id = data[0];
+      int reported_sequence_num;
+      std::memcpy(&reported_sequence_num, data+1, sizeof(int));
+      float reported_distance;
+      std::memcpy(&reported_distance, data+1+sizeof(int), sizeof(int));
 
+      /* Update navigation tables is new information is better */
+      Real computed_distance = reading.Range + reported_distance;
+      if (computed_distance < navTable[target_id].distance && reported_sequence_num >= navTable[target_id].sequence_number) {
+         navTable[target_id] = {
+            reported_sequence_num,
+            computed_distance
+         };
+      }
+
+      /* Update navigation behavior is new information is better */
+      if (robot_role == 2) {
+         if (reported_distance < distanceStar && reported_sequence_num >= sequenceNumberStar) {
+            distanceStar = reported_distance;
+            sequenceNumberStar = reported_sequence_num;
+            bestNavDist = reading.Range;
+            bestNavHeading = reading.HorizontalBearing.GetValue() + .5; // Offset to avoid colision
+         }
+      }
+
+   }
+
+   /* Send Messages */
+   bool time_to_send_update = true;
+   if (time_to_send_update) {
+      if (robot_role == 1) { // Robot is the target
+         int self_id = 0;
+         navTable[self_id].sequence_number += 1;
+      }
+
+      const int message_size = 10;
+      UInt8 message[message_size * navTable.size()];
+      for (auto i = navTable.begin(); i != navTable.end(); ++i) {
+         char id = (char)(i->first);
+         void* start = message + message_size * id;
+         std::memcpy(&id, start, sizeof(char));
+         int sequence_num = navTable[i->first].sequence_number;
+         std::memcpy(&sequence_num, start+1, sizeof(int));
+         float distance = navTable[i->first].distance;
+         std::memcpy(&distance, start+1+sizeof(int), sizeof(float));
+      }
+      rab_send->SetData(CByteArray(message, message_size));
+   }
 
    /* Most of the bots should wander randomly */
    if (robot_role == 0) {
@@ -117,25 +179,18 @@ void CFootBotDiffusion::ControlStep() {
          }
       }
    } else if (robot_role == 2) {
-      CCI_RangeAndBearingSensor::TReadings readings = rab_get->GetReadings();
-      Real best_range = -1;
-      CRadians best_bearing;
-      for (auto i = readings.begin(); i != readings.end(); ++i) {
-         CCI_RangeAndBearingSensor::SPacket reading = *i;
-         if (best_range == -1 || reading.Range < best_range) {
-            best_range = reading.Range;
-            best_bearing = reading.HorizontalBearing;
-         }
-      }
-      if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(best_bearing) ) {
+      if (bestNavDist <= 0) {
+         // Stop if you have arrived
+      } else if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(CRadians(bestNavHeading)) ) {
          /* Go straight */
          m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
       } else {
-         if(best_bearing.GetValue() < 0.0f) {
-            m_pcWheels->SetLinearVelocity(m_fWheelVelocity, 0.0f);
+         // Turn towards best heading
+         if(bestNavHeading < 0.0f) {
+            m_pcWheels->SetLinearVelocity(m_fWheelVelocity, -m_fWheelVelocity);
          }
          else {
-            m_pcWheels->SetLinearVelocity(0.0f, m_fWheelVelocity);
+            m_pcWheels->SetLinearVelocity(-m_fWheelVelocity, m_fWheelVelocity);
          }
       }
    }

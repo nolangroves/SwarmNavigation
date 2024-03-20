@@ -131,12 +131,18 @@ private:
 
    int stepnum;
 
+   int sequenceNumberStar;
+   Real distanceStar;
+   Real bestNavDist;
+   Real bestNavHeading;
+
+
    struct NavTableEntry {
       int sequence_number;
-      float distance;
+      Real distance;
    };
 
-   
+   std::map<int, NavTableEntry> navTable;
 
 };
 
