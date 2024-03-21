@@ -109,7 +109,7 @@ void CFootBotDiffusion::ControlStep() {
       CCI_RangeAndBearingSensor::SPacket reading = *i;
 
       if (reading.Range > comm_range) {
-         LOG << reading.Range << "\n";
+         // LOG << reading.Range << "\n";
          continue; // Artificially limit the range of communication by ignoring comms from beyond that range
       }
 
