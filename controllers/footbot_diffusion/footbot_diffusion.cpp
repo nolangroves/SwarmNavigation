@@ -65,6 +65,7 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
    GetNodeAttributeOrDefault(t_node, "delta", m_fDelta, m_fDelta);
    GetNodeAttributeOrDefault(t_node, "velocity", m_fWheelVelocity, m_fWheelVelocity);
    GetNodeAttributeOrDefault(t_node, "role", robot_role, robot_role);
+   GetNodeAttributeOrDefault(t_node, "comm_range", comm_range, comm_range);
 
    // Set unique colors
    if (robot_role == 1) {
@@ -87,9 +88,6 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
 }
 
 /****************************************/
-
-
-
 /****************************************/
 
 void CFootBotDiffusion::ControlStep() {
@@ -109,6 +107,12 @@ void CFootBotDiffusion::ControlStep() {
    CCI_RangeAndBearingSensor::TReadings readings = rab_get->GetReadings();
    for (auto i = readings.begin(); i != readings.end(); ++i) {
       CCI_RangeAndBearingSensor::SPacket reading = *i;
+
+      if (reading.Range > comm_range) {
+         LOG << reading.Range << "\n";
+         continue; // Artificially limit the range of communication by ignoring comms from beyond that range
+      }
+
       CByteArray data = reading.Data;
       UInt8 magic = data.PopFront<UInt8>();
       if (magic != 77) continue; 

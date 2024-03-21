@@ -131,6 +131,7 @@ private:
     * 0 is normal swarm behavior
     * 1 is target
     * 2 is the one navigating */
+   Real comm_range;
 
 
    int stepnum;

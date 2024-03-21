@@ -31,7 +31,7 @@
                            medium="rab" 
                            show_rays="true"/>
       </sensors>
-      <params alpha="7.5" delta="0.1" velocity="5" role="0"/>
+      <params alpha="7.5" delta="0.1" velocity="5" role="0" comm_range="300"/>
     </footbot_diffusion_controller>
 
     <footbot_diffusion_controller id="ftarget"
@@ -49,7 +49,7 @@
                            show_rays="true"/>
         <differential_steering implementation="default" />
       </sensors>
-      <params alpha="7.5" delta="0.1" velocity="5" role="1"/>
+      <params alpha="7.5" delta="0.1" velocity="5" role="1" comm_range="300"/>
     </footbot_diffusion_controller>
 
     <footbot_diffusion_controller id="fnav"
@@ -67,7 +67,7 @@
                            medium="rab" 
                            show_rays="true"/>
       </sensors>
-      <params alpha="7.5" delta="0.1" velocity="5" role="2"/>
+      <params alpha="7.5" delta="0.1" velocity="5" role="2" comm_range="300"/>
     </footbot_diffusion_controller>
 
   </controllers>
