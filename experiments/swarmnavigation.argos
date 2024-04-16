@@ -31,7 +31,7 @@
                            medium="rab" 
                            show_rays="true"/>
       </sensors>
-      <params alpha="7.5" delta="0.1" velocity="5" role="0" comm_range="300"/>
+      <params alpha="7.5" delta="0.1" velocity="5" role="0" comm_range="3"/>
     </footbot_diffusion_controller>
 
     <footbot_diffusion_controller id="ftarget"

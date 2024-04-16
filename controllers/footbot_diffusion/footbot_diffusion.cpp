@@ -5,6 +5,9 @@
 /* 2D vector definition */
 #include <argos3/core/utility/math/vector2.h>
 
+#include <argos3/core/simulator/simulator.h>
+#include <argos3/core/simulator/space/space.h>
+
 #include <cstring>
 
 #include <argos3/core/utility/logging/argos_log.h>
@@ -212,12 +215,16 @@ void CFootBotDiffusion::ControlStep() {
    } else if (robot_role == 2) {
       if (bestNavDist <= 0) {
          // Stop if you have arrived
+      } else if (bestNavDist <= 15 && distanceStar == 0) {
+         UInt32 current_time = CSimulator::GetInstance().GetSpace().GetSimulationClock();
+         LOG << current_time << " Found!" << std::endl;
+         CSimulator::GetInstance().Terminate();
       } else if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(CRadians(bestNavHeading)) ) {
          /* Go straight */
          m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
       } else {
          // Turn towards best heading
-         LOG << "Best Heading" << bestNavHeading << "\n";
+         // LOG << "Best Heading" << bestNavHeading << "\n";
          if(bestNavHeading < 0.0f) {
             m_pcWheels->SetLinearVelocity(m_fWheelVelocity, -m_fWheelVelocity);
          }
