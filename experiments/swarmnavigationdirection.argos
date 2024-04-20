@@ -16,8 +16,8 @@
   <!-- *************** -->
   <controllers>
 
-    <footbot_diffusion_controller id="fdc"
-                                  library="build/controllers/footbot_diffusion/directional_navigation.so">
+    <directional_navigation_controller id="fdc"
+                                  library="build/controllers/directional_navigation/libdirectional_navigation.so">
       <actuators>
         <differential_steering implementation="default" />
         <range_and_bearing implementation="default" />
@@ -31,11 +31,11 @@
                            medium="rab" 
                            show_rays="true"/>
       </sensors>
-      <params alpha="7.5" delta="0.1" velocity="5" role="0" comm_range="3"/>
-    </footbot_diffusion_controller>
+      <params alpha="7.5" delta="0.1" velocity="5" role="0" comm_range="300"/>
+    </directional_navigation_controller>
 
-    <footbot_diffusion_controller id="ftarget"
-                                  library="build/controllers/footbot_diffusion/directional_navigation.so">
+    <directional_navigation_controller id="ftarget"
+                                  library="build/controllers/directional_navigation/libdirectional_navigation.so">
       <actuators>
         <differential_steering implementation="default" />
         <range_and_bearing implementation="default" />
@@ -50,10 +50,10 @@
         <differential_steering implementation="default" />
       </sensors>
       <params alpha="7.5" delta="0.1" velocity="5" role="1" comm_range="300"/>
-    </footbot_diffusion_controller>
+    </directional_navigation_controller>
 
-    <footbot_diffusion_controller id="fnav"
-                                  library="build/controllers/footbot_diffusion/directional_navigation.so">
+    <directional_navigation_controller id="fnav"
+                                  library="build/controllers/directional_navigation/libdirectional_navigation.so">
       <actuators>
         <differential_steering implementation="default" />
         <range_and_bearing implementation="default" />
@@ -68,7 +68,7 @@
                            show_rays="true"/>
       </sensors>
       <params alpha="7.5" delta="0.1" velocity="5" role="2" comm_range="300"/>
-    </footbot_diffusion_controller>
+    </directional_navigation_controller>
 
   </controllers>
 
