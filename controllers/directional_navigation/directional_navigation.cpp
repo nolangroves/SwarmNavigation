@@ -81,13 +81,16 @@ void DirectionalNavigation::Init(TConfigurationNode& t_node) {
    
 
    if (robot_role == 1) {
-      navTable[0] = {0, 0};
+      navTable[0] = {0, 0, 0};
    }
 
    bestNavHeading = 0;
    bestNavDist = 0;
    distanceStar = -1;
    stepnum = 0;
+   next_heading = -1;
+   heading_of_last_message = -1;
+   navTargetId = 0;
 }
 
 /****************************************/
@@ -100,11 +103,14 @@ void DirectionalNavigation::ControlStep() {
    Real radians_rotated = (-encoder_reading.CoveredDistanceLeftWheel + encoder_reading.CoveredDistanceRightWheel) / encoder_reading.WheelAxisLength;
    for (auto i = navTable.begin(); i != navTable.end(); ++i) {
       navTable[i->first].distance += distance_moved;
+      navTable[i->first].heading -= radians_rotated;
    }
    if (robot_role == 2) {
       bestNavDist -= distance_moved; 
       bestNavHeading -= radians_rotated;
    }
+
+   bool time_to_send_update = true;
 
    /* Process recieved messages */
    CCI_RangeAndBearingSensor::TReadings readings = rab_get->GetReadings();
@@ -118,40 +124,95 @@ void DirectionalNavigation::ControlStep() {
 
       CByteArray data = reading.Data;
       UInt8 magic = data.PopFront<UInt8>();
-      if (magic != 77) continue; 
-      UInt8 target_id = data.PopFront<UInt8>();
-      UInt32 reported_sequence_num = data.PopFront<UInt32>();
-      UInt32 cursed = data.PopFront<UInt32>();
-      float reported_distance = * ( float * ) & cursed;
+      if (magic == 77) {
+         UInt8 target_id = data.PopFront<UInt8>();
+         UInt32 reported_sequence_num = data.PopFront<UInt32>();
+         UInt32 cursed = data.PopFront<UInt32>();
+         float reported_distance = * ( float * ) & cursed;
 
-      if (robot_role == 2) {
-      // LOG << "Recieved id " << (int)target_id << " num " << reported_sequence_num << " dist " << reported_distance << "\n";
-      }
-      /* Update navigation tables is new information is better */
-      float computed_distance = reading.Range + reported_distance;
-      if (navTable.find(target_id) == navTable.end() || (computed_distance < navTable[target_id].distance && reported_sequence_num >= navTable[target_id].sequence_number) ) {
-         navTable[target_id] = {
-            reported_sequence_num,
-            computed_distance
-         };
-         // LOG << navTable[target_id].sequence_number << "\n";
-      }
-
-      /* Update navigation behavior is new information is better */
-      if (robot_role == 2) {
-         if (distanceStar == -1 || (reported_distance < distanceStar && reported_sequence_num >= sequenceNumberStar)) {
-            distanceStar = reported_distance;
-            sequenceNumberStar = reported_sequence_num;
-            bestNavDist = reading.Range;
-            bestNavHeading = reading.HorizontalBearing.GetValue() - 0.02; // Offset to avoid colision
-            LOG << bestNavDist << " @ " << bestNavHeading << "\n";
+         if (robot_role == 2) {
+         // LOG << "Recieved id " << (int)target_id << " num " << reported_sequence_num << " dist " << reported_distance << "\n";
          }
+         /* Update navigation tables is new information is better */
+         float computed_distance = reading.Range + reported_distance;
+         if (navTable.find(target_id) == navTable.end() || (computed_distance < navTable[target_id].distance && reported_sequence_num >= navTable[target_id].sequence_number) ) {
+            navTable[target_id] = {
+               reported_sequence_num,
+               computed_distance,
+               reading.HorizontalBearing.GetValue()
+            };
+            // LOG << navTable[target_id].sequence_number << "\n";
+         }
+
+         /* Update navigation behavior is new information is better */
+         if (robot_role == 2 && target_id == navTargetId) {
+            if (distanceStar == -1 || (reported_distance < distanceStar && reported_sequence_num >= sequenceNumberStar)) {
+               distanceStar = reported_distance;
+               sequenceNumberStar = reported_sequence_num;
+               bestNavDist = reading.Range;
+               bestNavHeading = reading.HorizontalBearing.GetValue() - 0.02; // Offset to avoid colision
+               LOG << bestNavDist << " @ " << bestNavHeading << "\n";
+
+               /* Request directional info */
+               heading_of_last_message = reading.HorizontalBearing.GetValue();
+               time_to_send_update = false;
+               CByteArray message = CByteArray();
+               UInt8 magic = 56;
+               message << magic;
+
+               UInt8 id = (UInt8)(target_id);
+               message << id;
+
+               UInt32 padding = 0;
+               message << padding;
+               message << padding;
+               // LOG << "Request Message: " << message << std::endl;
+               rab_send->SetData(message);
+            }
+         }
+      } else if (magic == 56) {
+         /* Request for directional information */
+         time_to_send_update = false;
+         Real nav_heading = reading.HorizontalBearing.GetValue() + M_PI;
+         UInt8 target_id = data.PopFront<UInt8>();
+         
+         NavTableEntry target_nav_entry = navTable[target_id];
+
+         CByteArray message = CByteArray();
+         UInt8 magic = 25;
+         message << magic;
+
+         UInt8 id = (UInt8)(target_id);
+         message << id;
+
+         float heading = target_nav_entry.heading - nav_heading;
+         UInt32 heading_cursed = * ( UInt32 * ) &heading;
+         message << heading_cursed;
+
+         UInt32 padding = 0;
+         message << padding;
+         // LOG << "Directional Message: " << message << std::endl;
+         rab_send->SetData(message);
+          
+      } else if (magic == 25) {
+         /* Directional information */
+         if (robot_role != 2) continue;
+         UInt8 target_id = data.PopFront<UInt8>();
+         if (target_id != navTargetId) continue;
+
+         // Only accept messages from the robot that we want it from (the one that just gave us new nav info)
+         if (std::abs(reading.HorizontalBearing.GetValue() - heading_of_last_message) > 0.1) continue;
+
+         UInt32 cursed = data.PopFront<UInt32>();
+         next_heading = * ( float * ) & cursed;
+      } else {
+         continue;
       }
 
    }
 
    /* Send Messages */
-   bool time_to_send_update = true;
+   
    if (time_to_send_update) {
       if (robot_role == 1) { // Robot is the target
          int self_id = 0;
@@ -214,7 +275,13 @@ void DirectionalNavigation::ControlStep() {
       }
    } else if (robot_role == 2) {
       if (bestNavDist <= 0) {
-         // Stop if you have arrived
+         // Arrived at last bot location
+         // Go toward saved heading if no better info has been found
+         if (next_heading != -1) {
+            bestNavHeading = next_heading;
+            next_heading = -1;
+            bestNavDist = distanceStar;
+         }
       } else if (bestNavDist <= 15 && distanceStar == 0) {
          UInt32 current_time = CSimulator::GetInstance().GetSpace().GetSimulationClock();
          LOG << current_time << " Found!" << std::endl;

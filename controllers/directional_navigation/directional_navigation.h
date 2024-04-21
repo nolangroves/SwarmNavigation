@@ -138,13 +138,18 @@ private:
 
    int sequenceNumberStar;
    Real distanceStar;
+   int navTargetId;
    Real bestNavDist;
    Real bestNavHeading;
+
+   Real heading_of_last_message;
+   Real next_heading;
 
 
    struct NavTableEntry {
       UInt32 sequence_number;
       float distance;
+      Real heading;
    };
 
    std::map<int, NavTableEntry> navTable;
