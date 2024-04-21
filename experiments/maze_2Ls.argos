@@ -98,22 +98,6 @@
       <body position="1,-2,0" orientation="90,0,0" />
     </box>
 
-    <box id="wall_bottom_right_south" size="2,0.1,0.5" movable="false">
-      <body position="-2,-1,0" orientation="0,0,0" />
-    </box>
-
-    <box id="wall_bottom_right_east" size="2,0.1,0.5" movable="false">
-      <body position="-1,-2,0" orientation="90,0,0" />
-    </box>
-
-    <box id="wall_top_left_north" size="2,0.1,0.5" movable="false">
-      <body position="2, 1,0" orientation="0,0,0" />
-    </box>
-
-    <box id="wall_top_left_west" size="2,0.1,0.5" movable="false">
-      <body position="1, 2,0" orientation="90,0,0" />
-    </box>
-
     <box id="wall_bottom_left_south" size="2,0.1,0.5" movable="false">
       <body position="-2, 1,0" orientation="0,0,0" />
     </box>
