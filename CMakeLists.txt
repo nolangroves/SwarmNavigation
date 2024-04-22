@@ -33,3 +33,4 @@ endif(GALIB_FOUND)
 # Descend into the controllers directory
 add_subdirectory(controllers)
 
+add_subdirectory(loop_functions)
