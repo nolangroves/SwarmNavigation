@@ -173,7 +173,7 @@ void DirectionalNavigation::ControlStep() {
       } else if (magic == 56) {
          /* Request for directional information */
          time_to_send_update = false;
-         Real nav_heading = reading.HorizontalBearing.GetValue() + M_PI;
+         CRadians nav_heading = reading.HorizontalBearing + CRadians::PI;
          UInt8 target_id = data.PopFront<UInt8>();
          
          NavTableEntry target_nav_entry = navTable[target_id];
@@ -185,7 +185,8 @@ void DirectionalNavigation::ControlStep() {
          UInt8 id = (UInt8)(target_id);
          message << id;
 
-         float heading = target_nav_entry.heading - nav_heading;
+         float heading = (CRadians(target_nav_entry.heading) - nav_heading).GetValue();
+
          UInt32 heading_cursed = * ( UInt32 * ) &heading;
          message << heading_cursed;
 
@@ -278,6 +279,7 @@ void DirectionalNavigation::ControlStep() {
          // Arrived at last bot location
          // Go toward saved heading if no better info has been found
          if (next_heading != -1) {
+            LOG << "Reached Nav Point, using saved direcion: "  << next_heading << std::endl;
             bestNavHeading = next_heading;
             next_heading = -1;
             bestNavDist = distanceStar;
