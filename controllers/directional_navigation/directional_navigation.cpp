@@ -189,7 +189,7 @@ void DirectionalNavigation::ControlStep() {
          UInt8 id = (UInt8)(target_id);
          message << id;
 
-         float heading = (CRadians(target_nav_entry.heading) - nav_heading).GetValue();
+         float heading = (CRadians(target_nav_entry.heading) - nav_heading).SignedNormalize().GetValue();
 
          UInt32 heading_cursed = * ( UInt32 * ) &heading;
          message << heading_cursed;
