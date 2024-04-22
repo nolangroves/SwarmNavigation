@@ -70,6 +70,10 @@ void DirectionalNavigation::Init(TConfigurationNode& t_node) {
    GetNodeAttributeOrDefault(t_node, "role", robot_role, robot_role);
    GetNodeAttributeOrDefault(t_node, "comm_range", comm_range, comm_range);
 
+   GetNodeAttributeOrDefault(t_node, "navigation_type", navigation_type, 2);
+
+   rng = CRandom::CreateRNG("argos");
+
    // Set unique colors
    if (robot_role == 1) {
       ledRing->SetAllColors(CColor(0, 255, 0, 255));
@@ -206,6 +210,7 @@ void DirectionalNavigation::ControlStep() {
 
          UInt32 cursed = data.PopFront<UInt32>();
          next_heading = * ( float * ) & cursed;
+         LOG << "Saving possible next Heading: " << next_heading << std::endl;
       } else {
          continue;
       }
@@ -266,15 +271,29 @@ void DirectionalNavigation::ControlStep() {
          /* If Nav robot, do custom navigation logic
             as long as we aren't coliding with anything */
          if (robot_role == 2) {
+            // Arrived at last bot location
             if (bestNavDist <= 0) {
-               // Arrived at last bot location
-               // Go toward saved heading if no better info has been found
-               if (next_heading != -1) {
+               // LOG << "Navigation Type: "  << navigation_type << std::endl;
+               if (distanceStar == -1) {
+                  // Haven't started yet. 
+               } else if (navigation_type == 2 && next_heading != -1) {
+                  // Go toward saved heading if no better info has been found
+      
                   LOG << "Reached Nav Point, using saved direcion: "  << next_heading << std::endl;
                   bestNavHeading = next_heading;
                   next_heading = -1;
                   bestNavDist = distanceStar;
+                  
+               } else if (navigation_type == 1 || (navigation_type == 2 && next_heading == -1))
+               {
+                  Real rand_heading = rng->Uniform(CRange<Real>(-ARGOS_PI, ARGOS_PI));
+                  LOG << "Reached Nav Point, using random direcion: "  << rand_heading << std::endl;
+                  bestNavHeading = rand_heading;
+                  bestNavDist = distanceStar;
+               } else {
+                  LOG << "Reached Nav Point, stopping" << std::endl;
                }
+               
             } else if (bestNavDist <= 15 && distanceStar == 0) {
                UInt32 current_time = CSimulator::GetInstance().GetSpace().GetSimulationClock();
                LOG << current_time << " Found!" << std::endl;

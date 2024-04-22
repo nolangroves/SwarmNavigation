@@ -22,6 +22,8 @@
 /*
  * Include some necessary headers.
  */
+
+#include <argos3/core/utility/math/rng.h>
 /* Definition of the CCI_Controller class. */
 #include <argos3/core/control_interface/ci_controller.h>
 /* Definition of the differential steering actuator */
@@ -133,6 +135,14 @@ private:
     * 2 is the one navigating */
    Real comm_range;
 
+   int navigation_type;
+   /* Type of navigation: 
+      0 is Stopping
+      1 is Random
+      2 is Directed
+   */
+
+   CRandom::CRNG* rng;
 
    int stepnum;
 
