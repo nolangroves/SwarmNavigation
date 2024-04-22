@@ -247,7 +247,7 @@ void DirectionalNavigation::ControlStep() {
    }
 
    /* Most of the bots should wander randomly */
-   if (robot_role == 0) {
+   if (robot_role == 0 || robot_role == 2) {
       /* Get readings from proximity sensor */
       const CCI_FootBotProximitySensor::TReadings& tProxReads = m_pcProximity->GetReadings();
       /* Sum them together */
@@ -262,8 +262,40 @@ void DirectionalNavigation::ControlStep() {
       CRadians cAngle = cAccumulator.Angle();
       if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(cAngle) &&
          cAccumulator.Length() < m_fDelta ) {
-         /* Go straight */
-         m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
+
+         /* If Nav robot, do custom navigation logic
+            as long as we aren't coliding with anything */
+         if (robot_role == 2) {
+            if (bestNavDist <= 0) {
+               // Arrived at last bot location
+               // Go toward saved heading if no better info has been found
+               if (next_heading != -1) {
+                  LOG << "Reached Nav Point, using saved direcion: "  << next_heading << std::endl;
+                  bestNavHeading = next_heading;
+                  next_heading = -1;
+                  bestNavDist = distanceStar;
+               }
+            } else if (bestNavDist <= 15 && distanceStar == 0) {
+               UInt32 current_time = CSimulator::GetInstance().GetSpace().GetSimulationClock();
+               LOG << current_time << " Found!" << std::endl;
+               CSimulator::GetInstance().Terminate();
+            } else if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(CRadians(bestNavHeading)) ) {
+               /* Go straight */
+               m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
+            } else {
+               // Turn towards best heading
+               // LOG << "Best Heading" << bestNavHeading << "\n";
+               if(bestNavHeading < 0.0f) {
+                  m_pcWheels->SetLinearVelocity(m_fWheelVelocity, -m_fWheelVelocity);
+               }
+               else {
+                  m_pcWheels->SetLinearVelocity(-m_fWheelVelocity, m_fWheelVelocity);
+               }
+            }
+         } else {
+            /* Go straight */
+            m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
+         }
       }
       else {
          /* Turn, depending on the sign of the angle */
@@ -274,34 +306,7 @@ void DirectionalNavigation::ControlStep() {
             m_pcWheels->SetLinearVelocity(0.0f, m_fWheelVelocity);
          }
       }
-   } else if (robot_role == 2) {
-      if (bestNavDist <= 0) {
-         // Arrived at last bot location
-         // Go toward saved heading if no better info has been found
-         if (next_heading != -1) {
-            LOG << "Reached Nav Point, using saved direcion: "  << next_heading << std::endl;
-            bestNavHeading = next_heading;
-            next_heading = -1;
-            bestNavDist = distanceStar;
-         }
-      } else if (bestNavDist <= 15 && distanceStar == 0) {
-         UInt32 current_time = CSimulator::GetInstance().GetSpace().GetSimulationClock();
-         LOG << current_time << " Found!" << std::endl;
-         CSimulator::GetInstance().Terminate();
-      } else if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(CRadians(bestNavHeading)) ) {
-         /* Go straight */
-         m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
-      } else {
-         // Turn towards best heading
-         // LOG << "Best Heading" << bestNavHeading << "\n";
-         if(bestNavHeading < 0.0f) {
-            m_pcWheels->SetLinearVelocity(m_fWheelVelocity, -m_fWheelVelocity);
-         }
-         else {
-            m_pcWheels->SetLinearVelocity(-m_fWheelVelocity, m_fWheelVelocity);
-         }
-      }
-   }
+   } 
 }
 
 /****************************************/
