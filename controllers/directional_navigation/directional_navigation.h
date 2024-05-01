@@ -151,6 +151,7 @@ private:
    int navTargetId;
    Real bestNavDist;
    Real bestNavHeading;
+   int randomWanderTime;
 
    Real heading_of_last_message;
    Real next_heading;

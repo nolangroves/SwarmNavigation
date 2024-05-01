@@ -95,6 +95,7 @@ void DirectionalNavigation::Init(TConfigurationNode& t_node) {
    next_heading = -1;
    heading_of_last_message = -1;
    navTargetId = 0;
+   randomWanderTime = 0;
 }
 
 /****************************************/
@@ -274,9 +275,10 @@ void DirectionalNavigation::ControlStep() {
             // Arrived at last bot location
             if (bestNavDist <= 0) {
                // LOG << "Navigation Type: "  << navigation_type << std::endl;
-               if (distanceStar == -1) {
-                  // Haven't started yet. 
-               } else if (navigation_type == 2 && next_heading != -1) {
+               // if (distanceStar == -1) {
+               //    // Haven't started yet. 
+               // } else 
+               if (navigation_type == 2 && next_heading != -1) {
                   // Go toward saved heading if no better info has been found
       
                   LOG << "Reached Nav Point, using saved direcion: "  << next_heading << std::endl;
@@ -287,9 +289,14 @@ void DirectionalNavigation::ControlStep() {
                } else if (navigation_type == 1 || (navigation_type == 2 && next_heading == -1))
                {
                   Real rand_heading = rng->Uniform(CRange<Real>(-ARGOS_PI, ARGOS_PI));
-                  LOG << "Reached Nav Point, using random direcion: "  << rand_heading << std::endl;
+                  Real random_dist = rng->Exponential(150);
+                  LOG << "Reached Nav Point, using random direcion: "  << rand_heading << " for " << random_dist << std::endl;
                   bestNavHeading = rand_heading;
-                  bestNavDist = distanceStar;
+                  bestNavDist = random_dist;
+               
+                  
+                  
+                  
                } else {
                   LOG << "Reached Nav Point, stopping" << std::endl;
                }
