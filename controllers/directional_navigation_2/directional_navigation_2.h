@@ -150,6 +150,8 @@ private:
    Real fractional_heading;
    Real to_be_heading;
 
+   UInt32 time_limit;
+
 
 
    struct NavTableEntry {

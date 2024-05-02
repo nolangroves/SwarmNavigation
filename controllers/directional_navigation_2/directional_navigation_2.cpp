@@ -96,12 +96,20 @@ void DirectionalNavigation::Init(TConfigurationNode& t_node) {
    improved_nav = false;
    fractional_heading = -1;
    to_be_heading = -1;
+
+   time_limit = 50000;
 }
 
 /****************************************/
 /****************************************/
 
 void DirectionalNavigation::ControlStep() {
+   UInt32 current_time = CSimulator::GetInstance().GetSpace().GetSimulationClock();
+   // UInt32 time_limit = 5000;
+   if(current_time >= time_limit){
+      LOG << current_time << " Timeout!" << std::endl;
+      CSimulator::GetInstance().Terminate();
+   }
    /* Update local distance estimates */
    CCI_DifferentialSteeringSensor::SReading encoder_reading = encoder->GetReading();
    Real distance_moved = (encoder_reading.CoveredDistanceLeftWheel + encoder_reading.CoveredDistanceRightWheel) / 2;
@@ -160,7 +168,7 @@ void DirectionalNavigation::ControlStep() {
                sequenceNumberStar = reported_sequence_num;
                bestNavDist = reading.Range;
                bestNavHeading = reading.HorizontalBearing.GetValue() - 0.02; // Offset to avoid colision
-               LOG << bestNavDist << " @ " << bestNavHeading << "\n";
+               // LOG << bestNavDist << " @ " << bestNavHeading << "\n";
 
                /* Request directional info */
                heading_of_last_message = reading.HorizontalBearing.GetValue();
@@ -304,22 +312,23 @@ void DirectionalNavigation::ControlStep() {
 
 
          fractional_heading = fraction * (next_heading) + (1-fraction) * bestNavHeading;
+         // fractional_heading = (next_heading) + bestNavHeading;
 
          while(fractional_heading > M_PI || fractional_heading < -M_PI){
             if(fractional_heading > M_PI) fractional_heading -= M_PI;
             else fractional_heading += M_PI;
          }
-         LOG << "(inside loop) next heading: " << next_heading << std::endl;
-         LOG << "(inside loop) best Nav heading: " << bestNavHeading << std::endl;
-         LOG << "(inside loop) Fractional heading: " << fractional_heading << std::endl;
+         // LOG << "(inside loop) next heading: " << next_heading << std::endl;
+         // LOG << "(inside loop) best Nav heading: " << bestNavHeading << std::endl;
+         // LOG << "(inside loop) Fractional heading: " << fractional_heading << std::endl;
       }
       else{
          improved_nav = false;
       }
       // improved_nav = false;
-      LOG << "next heading: " << next_heading << std::endl;
-      LOG << "best Nav heading: " << bestNavHeading << std::endl;
-      LOG << "Fractional heading: " << fractional_heading << std::endl;
+      // LOG << "next heading: " << next_heading << std::endl;
+      // LOG << "best Nav heading: " << bestNavHeading << std::endl;
+      // LOG << "Fractional heading: " << fractional_heading << std::endl;
 
       if (bestNavDist <= 0) {
          // Arrived at last bot location
@@ -334,29 +343,36 @@ void DirectionalNavigation::ControlStep() {
          LOG << current_time << " Found!" << std::endl;
          CSimulator::GetInstance().Terminate();
       } else{
+
+         UInt32 current_time = CSimulator::GetInstance().GetSpace().GetSimulationClock();
+         // UInt32 time_limit = 5000;
+         if(current_time >= time_limit){
+            LOG << current_time << " Timeout!" << std::endl;
+            CSimulator::GetInstance().Terminate();
+         }
          if(improved_nav){
             to_be_heading = fractional_heading;
-            LOG << "following fractional heading : "<< fractional_heading << std::endl;
+            // LOG << "following fractional heading : "<< fractional_heading << std::endl;
          }
          else {
             to_be_heading = bestNavHeading;
-            LOG << "following intermediate bot heading : " << bestNavHeading << std::endl;
+            // LOG << "following intermediate bot heading : " << bestNavHeading << std::endl;
          }
-         LOG << "to be heading: " << to_be_heading << std::endl;
+         // LOG << "to be heading: " << to_be_heading << std::endl;
          if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(CRadians(to_be_heading)) ) {
             /* Go straight */
-            LOG << "going straight" << std::endl;
+            // LOG << "going straight" << std::endl;
             m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
          } else {
             // Turn towards best heading
             // LOG << "Best Heading" << bestNavHeading << "\n";
             if(to_be_heading < 0.0f) {
                m_pcWheels->SetLinearVelocity(m_fWheelVelocity, -m_fWheelVelocity);
-               LOG << "rotating clock" << std::endl;
+               // LOG << "rotating clock" << std::endl;
             }
             else {
                m_pcWheels->SetLinearVelocity(-m_fWheelVelocity, m_fWheelVelocity);
-               LOG << "rotating counter-clock" << std::endl;
+               // LOG << "rotating counter-clock" << std::endl;
             }
          }
       }

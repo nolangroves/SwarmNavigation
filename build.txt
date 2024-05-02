@@ -3,3 +3,6 @@ cmake -DCMAKE_BUILD_TYPE=Debug ..
 make
 cd ..
 argos3 -c experiments/swarmnavigationdirection_2.argos 
+
+
+./batch_run.sh -c experiments/swarmnavigationdirection_2.argos -n 100 -o my_exeriment_log.csv
