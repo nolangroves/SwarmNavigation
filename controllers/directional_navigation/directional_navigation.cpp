@@ -133,7 +133,7 @@ void DirectionalNavigation::ControlStep() {
          if (robot_role == 2) {
          // LOG << "Recieved id " << (int)target_id << " num " << reported_sequence_num << " dist " << reported_distance << "\n";
          }
-         /* Update navigation tables is new information is better */
+         /* Update navigation tables if new information is better */
          float computed_distance = reading.Range + reported_distance;
          if (navTable.find(target_id) == navTable.end() || (computed_distance < navTable[target_id].distance && reported_sequence_num >= navTable[target_id].sequence_number) ) {
             navTable[target_id] = {
@@ -144,7 +144,7 @@ void DirectionalNavigation::ControlStep() {
             // LOG << navTable[target_id].sequence_number << "\n";
          }
 
-         /* Update navigation behavior is new information is better */
+         /* Update navigation behavior if new information is better */
          if (robot_role == 2 && target_id == navTargetId) {
             if (distanceStar == -1 || (reported_distance < distanceStar && reported_sequence_num >= sequenceNumberStar)) {
                distanceStar = reported_distance;

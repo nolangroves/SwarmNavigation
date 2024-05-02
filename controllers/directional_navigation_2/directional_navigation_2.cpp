@@ -1,5 +1,5 @@
 /* Include the controller definition */
-#include "footbot_diffusion.h"
+#include "directional_navigation_2.h"
 /* Function definitions for XML parsing */
 #include <argos3/core/utility/configuration/argos_configuration.h>
 /* 2D vector definition */
@@ -15,7 +15,7 @@
 /****************************************/
 /****************************************/
 
-CFootBotDiffusion::CFootBotDiffusion() :
+DirectionalNavigation::DirectionalNavigation() :
    m_pcWheels(NULL),
    m_pcProximity(NULL),
    m_cAlpha(10.0f),
@@ -27,7 +27,7 @@ CFootBotDiffusion::CFootBotDiffusion() :
 /****************************************/
 /****************************************/
 
-void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
+void DirectionalNavigation::Init(TConfigurationNode& t_node) {
    /*
     * Get sensor/actuator handles
     *
@@ -81,30 +81,45 @@ void CFootBotDiffusion::Init(TConfigurationNode& t_node) {
    
 
    if (robot_role == 1) {
-      navTable[0] = {0, 0};
+      navTable[0] = {0, 0, 0};
    }
 
    bestNavHeading = 0;
    bestNavDist = 0;
    distanceStar = -1;
    stepnum = 0;
+   next_heading = -1;
+   heading_of_last_message = -1;
+   navTargetId = 0;
+
+   fraction = 0.1;
+   improved_nav = false;
+   fractional_heading = -1;
+   to_be_heading = -1;
 }
 
 /****************************************/
 /****************************************/
 
-void CFootBotDiffusion::ControlStep() {
+void DirectionalNavigation::ControlStep() {
    /* Update local distance estimates */
    CCI_DifferentialSteeringSensor::SReading encoder_reading = encoder->GetReading();
    Real distance_moved = (encoder_reading.CoveredDistanceLeftWheel + encoder_reading.CoveredDistanceRightWheel) / 2;
    Real radians_rotated = (-encoder_reading.CoveredDistanceLeftWheel + encoder_reading.CoveredDistanceRightWheel) / encoder_reading.WheelAxisLength;
    for (auto i = navTable.begin(); i != navTable.end(); ++i) {
       navTable[i->first].distance += distance_moved;
+      navTable[i->first].heading -= radians_rotated;
    }
    if (robot_role == 2) {
       bestNavDist -= distance_moved; 
       bestNavHeading -= radians_rotated;
+      while(bestNavHeading > M_PI || bestNavHeading < -M_PI){
+            if(bestNavHeading > M_PI) bestNavHeading -= M_PI;
+            else bestNavHeading += M_PI;
+      }
    }
+
+   bool time_to_send_update = true;
 
    /* Process recieved messages */
    CCI_RangeAndBearingSensor::TReadings readings = rab_get->GetReadings();
@@ -118,40 +133,100 @@ void CFootBotDiffusion::ControlStep() {
 
       CByteArray data = reading.Data;
       UInt8 magic = data.PopFront<UInt8>();
-      if (magic != 77) continue; 
-      UInt8 target_id = data.PopFront<UInt8>();
-      UInt32 reported_sequence_num = data.PopFront<UInt32>();
-      UInt32 cursed = data.PopFront<UInt32>();
-      float reported_distance = * ( float * ) & cursed;
+      if (magic == 77) {
+         UInt8 target_id = data.PopFront<UInt8>();
+         UInt32 reported_sequence_num = data.PopFront<UInt32>();
+         UInt32 cursed = data.PopFront<UInt32>();
+         float reported_distance = * ( float * ) & cursed;
 
-      if (robot_role == 2) {
-      LOG << "Recieved id " << (int)target_id << " num " << reported_sequence_num << " dist " << reported_distance << "\n";
-      }
-      /* Update navigation tables if new information is better */
-      float computed_distance = reading.Range + reported_distance;
-      if (navTable.find(target_id) == navTable.end() || (computed_distance < navTable[target_id].distance && reported_sequence_num >= navTable[target_id].sequence_number) ) {
-         navTable[target_id] = {
-            reported_sequence_num,
-            computed_distance
-         };
-         // LOG << navTable[target_id].sequence_number << "\n";
-      }
-
-      /* Update navigation behavior if new information is better */
-      if (robot_role == 2) {
-         if (distanceStar == -1 || (reported_distance < distanceStar && reported_sequence_num >= sequenceNumberStar)) {
-            distanceStar = reported_distance;
-            sequenceNumberStar = reported_sequence_num;
-            bestNavDist = reading.Range;
-            bestNavHeading = reading.HorizontalBearing.GetValue() - 0.02; // Offset to avoid collision
-            LOG << bestNavDist << " @ " << bestNavHeading << "\n";
+         if (robot_role == 2) {
+         // LOG << "Recieved id " << (int)target_id << " num " << reported_sequence_num << " dist " << reported_distance << "\n";
          }
+         /* Update navigation tables if new information is better */
+         float computed_distance = reading.Range + reported_distance;
+         if (navTable.find(target_id) == navTable.end() || (computed_distance < navTable[target_id].distance && reported_sequence_num >= navTable[target_id].sequence_number) ) {
+            navTable[target_id] = {
+               reported_sequence_num,
+               computed_distance,
+               reading.HorizontalBearing.GetValue()
+            };
+            // LOG << navTable[target_id].sequence_number << "\n";
+         }
+
+         /* Update navigation behavior if new information is better */
+         if (robot_role == 2 && target_id == navTargetId) {
+            if (distanceStar == -1 || (reported_distance < distanceStar && reported_sequence_num >= sequenceNumberStar)) {
+               distanceStar = reported_distance;
+               sequenceNumberStar = reported_sequence_num;
+               bestNavDist = reading.Range;
+               bestNavHeading = reading.HorizontalBearing.GetValue() - 0.02; // Offset to avoid colision
+               LOG << bestNavDist << " @ " << bestNavHeading << "\n";
+
+               /* Request directional info */
+               heading_of_last_message = reading.HorizontalBearing.GetValue();
+               time_to_send_update = false;
+               CByteArray message = CByteArray();
+               UInt8 magic = 56;
+               message << magic;
+
+               UInt8 id = (UInt8)(target_id);
+               message << id;
+
+               UInt32 padding = 0;
+               message << padding;
+               message << padding;
+               // LOG << "Request Message: " << message << std::endl;
+               rab_send->SetData(message);
+            }
+         }
+      } else if (magic == 56) {
+         /* Request for directional information */
+         time_to_send_update = false;
+         Real nav_heading = reading.HorizontalBearing.GetValue() + M_PI;
+         UInt8 target_id = data.PopFront<UInt8>();
+         
+         NavTableEntry target_nav_entry = navTable[target_id];
+
+         CByteArray message = CByteArray();
+         UInt8 magic = 25;
+         message << magic;
+
+         UInt8 id = (UInt8)(target_id);
+         message << id;
+
+         float heading = target_nav_entry.heading - nav_heading;
+         UInt32 heading_cursed = * ( UInt32 * ) &heading;
+         message << heading_cursed;
+
+         UInt32 padding = 0;
+         message << padding;
+         // LOG << "Directional Message: " << message << std::endl;
+         rab_send->SetData(message);
+          
+      } else if (magic == 25) {
+         /* Directional information */
+         if (robot_role != 2) continue;
+         UInt8 target_id = data.PopFront<UInt8>();
+         if (target_id != navTargetId) continue;
+
+         // Only accept messages from the robot that we want it from (the one that just gave us new nav info)
+         if (std::abs(reading.HorizontalBearing.GetValue() - heading_of_last_message) > 0.1) continue;
+
+         UInt32 cursed = data.PopFront<UInt32>();
+         next_heading = * ( float * ) & cursed;
+         while(next_heading > M_PI || next_heading < -M_PI){
+            if(next_heading > M_PI) next_heading -= M_PI;
+            else next_heading += M_PI;
+         }
+
+      } else {
+         continue;
       }
 
    }
 
    /* Send Messages */
-   bool time_to_send_update = true;
+   
    if (time_to_send_update) {
       if (robot_role == 1) { // Robot is the target
          int self_id = 0;
@@ -213,23 +288,76 @@ void CFootBotDiffusion::ControlStep() {
          }
       }
    } else if (robot_role == 2) {
+
+      fraction = 0.1;
+      improved_nav = false;
+      fractional_heading = -1;
+      to_be_heading = bestNavHeading;
+
+      if (next_heading != -1){
+         improved_nav = true;
+
+         // float x_dist = distanceStar*cos(next_heading) + bestNavDist;
+         // float y_dist = distanceStar*sin(next_heading);
+
+         // Real fractional_heading = bestNavHeading + atan(y_dist/x_dist);
+
+
+         fractional_heading = fraction * (next_heading) + (1-fraction) * bestNavHeading;
+
+         while(fractional_heading > M_PI || fractional_heading < -M_PI){
+            if(fractional_heading > M_PI) fractional_heading -= M_PI;
+            else fractional_heading += M_PI;
+         }
+         LOG << "(inside loop) next heading: " << next_heading << std::endl;
+         LOG << "(inside loop) best Nav heading: " << bestNavHeading << std::endl;
+         LOG << "(inside loop) Fractional heading: " << fractional_heading << std::endl;
+      }
+      else{
+         improved_nav = false;
+      }
+      // improved_nav = false;
+      LOG << "next heading: " << next_heading << std::endl;
+      LOG << "best Nav heading: " << bestNavHeading << std::endl;
+      LOG << "Fractional heading: " << fractional_heading << std::endl;
+
       if (bestNavDist <= 0) {
-         // Stop if you have arrived
+         // Arrived at last bot location
+         // Go toward saved heading if no better info has been found
+         if (next_heading != -1) {
+            bestNavHeading = next_heading;
+            next_heading = -1;
+            bestNavDist = distanceStar;
+         }
       } else if (bestNavDist <= 15 && distanceStar == 0) {
          UInt32 current_time = CSimulator::GetInstance().GetSpace().GetSimulationClock();
          LOG << current_time << " Found!" << std::endl;
          CSimulator::GetInstance().Terminate();
-      } else if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(CRadians(bestNavHeading)) ) {
-         /* Go straight */
-         m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
-      } else {
-         // Turn towards best heading
-         // LOG << "Best Heading" << bestNavHeading << "\n";
-         if(bestNavHeading < 0.0f) {
-            m_pcWheels->SetLinearVelocity(m_fWheelVelocity, -m_fWheelVelocity);
+      } else{
+         if(improved_nav){
+            to_be_heading = fractional_heading;
+            LOG << "following fractional heading : "<< fractional_heading << std::endl;
          }
          else {
-            m_pcWheels->SetLinearVelocity(-m_fWheelVelocity, m_fWheelVelocity);
+            to_be_heading = bestNavHeading;
+            LOG << "following intermediate bot heading : " << bestNavHeading << std::endl;
+         }
+         LOG << "to be heading: " << to_be_heading << std::endl;
+         if(m_cGoStraightAngleRange.WithinMinBoundIncludedMaxBoundIncluded(CRadians(to_be_heading)) ) {
+            /* Go straight */
+            LOG << "going straight" << std::endl;
+            m_pcWheels->SetLinearVelocity(m_fWheelVelocity, m_fWheelVelocity);
+         } else {
+            // Turn towards best heading
+            // LOG << "Best Heading" << bestNavHeading << "\n";
+            if(to_be_heading < 0.0f) {
+               m_pcWheels->SetLinearVelocity(m_fWheelVelocity, -m_fWheelVelocity);
+               LOG << "rotating clock" << std::endl;
+            }
+            else {
+               m_pcWheels->SetLinearVelocity(-m_fWheelVelocity, m_fWheelVelocity);
+               LOG << "rotating counter-clock" << std::endl;
+            }
          }
       }
    }
@@ -248,4 +376,4 @@ void CFootBotDiffusion::ControlStep() {
  * controller class to instantiate.
  * See also the configuration files for an example of how this is used.
  */
-REGISTER_CONTROLLER(CFootBotDiffusion, "footbot_diffusion_controller")
+REGISTER_CONTROLLER(DirectionalNavigation, "directional_navigation_controller")
